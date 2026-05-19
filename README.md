@@ -4,7 +4,7 @@
 
 QuickPickr is a quick-commerce price comparison product for shoppers in India. Enter a product name and pincode once, compare live prices across **Blinkit**, **Zepto**, **BigBasket**, and **Swiggy Instamart**, and jump to the cheapest retailer to complete your purchase there.
 
-This repository is built with the [AAMAD](https://pypi.org/project/aamad/) (AI-Assisted Multi-Agent Application Development) framework. Phase 1 requirements are complete; application code scaffolding begins in Phase 2 after the Solution Architecture Document (SAD) is approved.
+This repository is built with the [AAMAD](https://pypi.org/project/aamad/) (AI-Assisted Multi-Agent Application Development) framework. Phase 1 requirements and solution architecture are complete; application scaffolding begins with `@project.mgr` `*setup-project`.
 
 ---
 
@@ -106,7 +106,7 @@ Full requirements: [project-context/1.define/prd.md](project-context/1.define/pr
 
 ## Application Architecture
 
-QuickPickr has three logical layers. Implementation details will be finalized in the SAD (`project-context/1.define/sad.md`).
+QuickPickr has three logical layers. Full specification: [project-context/2.build/sad.md](project-context/2.build/sad.md).
 
 ```mermaid
 flowchart TB
@@ -137,7 +137,7 @@ flowchart TB
 | Layer | Components | Role |
 |-------|------------|------|
 | **Client** | Next.js (web), React Native (iOS/Android) | Input validation, pincode cache, results UI, deep links, analytics |
-| **Query API** | Cloud Run service | `POST /v1/search` — parallel Vertex AI Search per retailer, INR parsing, rank by price |
+| **Query API** | FastAPI on Cloud Run | `POST /v1/search` — parallel Vertex AI Search per retailer, INR parsing, rank by price |
 | **Indexing** | Crawler + Vertex AI Search | Index retailer catalog pages; refresh hot SKUs every 2–5 minutes |
 
 ### Search flow
@@ -294,9 +294,25 @@ AAMAD_TARGET_RUNTIME=cursor-sdk
 
 Do not commit secrets. See `setup.md` after the setup epic completes.
 
-### 5. Run the application (Phase 2+)
+### 5. Run Vertex search locally (available now)
 
-Application source (`web/`, `api/`, `mobile/`) is **not yet scaffolded**. After `@project.mgr` runs `*setup-project`, run instructions will be documented in `project-context/2.build/setup.md`.
+If your repo-root `.env` has `VERTEX_SEARCH_SERVING_CONFIG` and `GOOGLE_APPLICATION_CREDENTIALS` set:
+
+```powershell
+cd c:\Users\welcome\Documents\quick-pickr-project
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r apps\query-service\requirements.txt
+python scripts\verify_vertex.py "Amul Gold 500 ml"
+
+cd apps\query-service
+$env:PYTHONPATH = "."
+uvicorn app.main:app --reload --port 8080
+```
+
+Open **http://127.0.0.1:8080/** for the dev search UI, or `POST /v1/search`. See [project-context/2.build/setup.md](project-context/2.build/setup.md).
+
+Full Next.js / React Native clients are planned per [architecture-plan.md](project-context/2.build/architecture-plan.md).
 
 ---
 
@@ -313,7 +329,9 @@ quick-pickr-project/
 │   │   ├── mrd.md            # Market Requirements Document
 │   │   ├── prd.md            # Product Requirements Document
 │   │   └── context-summary.md
-│   ├── 2.build/              # Phase 2 — implementation docs (pending)
+│   ├── 2.build/              # Phase 2 — architecture + implementation docs
+│   │   ├── sad.md            # Solution Architecture Document
+│   │   ├── architecture-plan.md
 │   │   ├── setup.md          # (after *setup-project)
 │   │   ├── frontend.md
 │   │   ├── backend.md
@@ -342,6 +360,8 @@ quick-pickr-project/
 | [MRD](project-context/1.define/mrd.md) | Market opportunity, personas, structured user stories, user trust risk |
 | [PRD](project-context/1.define/prd.md) | Features, NFRs, API contract, acceptance criteria, release plan |
 | [Context summary](project-context/1.define/context-summary.md) | Phase 1 handoff for architects and builders |
+| [SAD](project-context/2.build/sad.md) | Solution architecture (FastAPI, Vertex AI Search, clients) |
+| [Architecture plan](project-context/2.build/architecture-plan.md) | Milestones, SLOs, implementation status |
 | [CHECKLIST.md](CHECKLIST.md) | Step-by-step AAMAD execution |
 | [AGENTS.md](AGENTS.md) | Agent persona quick reference |
 
@@ -359,9 +379,8 @@ quick-pickr-project/
 
 | Step | Owner | Action | Output |
 |------|-------|--------|--------|
-| 1 | @system.arch | `*create-sad --mvp` | `project-context/1.define/sad.md` |
-| 2 | Team | Approve MRD/PRD/SAD; set `AAMAD_TARGET_RUNTIME` | Recorded in SAD Audit |
-| 3 | @project.mgr | `*setup-project` | Repo scaffold, `.env.example`, `setup.md` |
+| 1 | @system.arch | SAD + architecture plan | [sad.md](project-context/2.build/sad.md), [architecture-plan.md](project-context/2.build/architecture-plan.md) |
+| 2 | @project.mgr | `*setup-project` | Repo scaffold, `.env.example`, `setup.md` |
 | 4 | @backend.eng | `*develop-be` | Query API, Vertex AI Search, indexer |
 | 5 | @frontend.eng | `*develop-fe` | Next.js + React Native search UI |
 | 6 | @integration.eng | `*integrate-api` | End-to-end search → click-out |

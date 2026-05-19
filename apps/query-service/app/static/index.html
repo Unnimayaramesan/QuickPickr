@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuickPickr — Search</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #111; background: #f6f7f9; }
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.5rem; }
+    form { display: grid; gap: 0.75rem; margin-bottom: 1.5rem; }
+    label { display: grid; gap: 0.25rem; font-size: 0.875rem; font-weight: 600; }
+    input { padding: 0.6rem 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
+    button { padding: 0.75rem; background: #0b57d0; color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #eef2f7; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .lowest { font-weight: 700; color: #0b57d0; }
+    .muted { color: #666; font-size: 0.875rem; }
+    footer { margin-top: 1.5rem; font-size: 0.8rem; color: #555; }
+    .error { color: #b3261e; }
+  </style>
+</head>
+<body>
+  <h1>QuickPickr</h1>
+  <p class="muted">Compare prices via your Vertex AI Search index. Enter a product and pincode.</p>
+
+  <form id="search-form">
+    <label>Product
+      <input name="query" type="text" placeholder="Amul Gold 500 ml" required minlength="2" />
+    </label>
+    <label>Pincode
+      <input name="pincode" type="text" placeholder="560034" required pattern="[1-9][0-9]{5}" maxlength="6" />
+    </label>
+    <button type="submit" id="submit-btn">Search</button>
+  </form>
+
+  <div id="status" class="muted"></div>
+  <table id="results" hidden>
+    <thead>
+      <tr>
+        <th>Retailer</th>
+        <th>Product</th>
+        <th>Price</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <footer>
+    Prices sourced from retailer websites indexed in Vertex AI Search. Confirm final price at checkout.
+  </footer>
+
+  <script>
+    const form = document.getElementById('search-form');
+    const status = document.getElementById('status');
+    const table = document.getElementById('results');
+    const tbody = table.querySelector('tbody');
+    const btn = document.getElementById('submit-btn');
+
+    const savedPincode = localStorage.getItem('quickpickr_pincode');
+    if (savedPincode) form.pincode.value = savedPincode;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const query = form.query.value.trim();
+      const pincode = form.pincode.value.trim();
+      localStorage.setItem('quickpickr_pincode', pincode);
+
+      btn.disabled = true;
+      status.textContent = 'Searching…';
+      status.className = 'muted';
+      table.hidden = true;
+      tbody.innerHTML = '';
+
+      try {
+        const res = await fetch('/v1/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, pincode }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+
+        status.textContent = `Done in ${data.meta.latencyMs}ms` + (data.meta.cacheHit ? ' (cached)' : '');
+        const available = data.results.filter(r => r.status === 'available');
+        const cheapest = available.length ? Math.min(...available.map(r => r.finalPriceInr)) : null;
+
+        data.results.forEach((row, idx) => {
+          const tr = document.createElement('tr');
+          const price = row.finalPriceInr != null ? `₹${row.finalPriceInr}` : '—';
+          const isLowest = row.finalPriceInr === cheapest && row.status === 'available';
+          const cta = row.buyUrl && row.status === 'available'
+            ? `<a href="${row.buyUrl}" target="_blank" rel="noopener">Buy on ${row.retailerDisplayName}</a>`
+            : `<span class="muted">${row.message || row.status}</span>`;
+          tr.innerHTML = `
+            <td>${row.retailerDisplayName}${isLowest ? ' <span class="lowest">Lowest</span>' : ''}</td>
+            <td>${row.title || '—'}<br><span class="muted">${row.packSize || ''}</span></td>
+            <td>${price}</td>
+            <td>${cta}</td>`;
+          tbody.appendChild(tr);
+        });
+        table.hidden = false;
+      } catch (err) {
+        status.textContent = err.message;
+        status.className = 'error';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 |-------|-------|
 | **Date** | 2026-05-19 |
 | **Author** | @product-mgr |
-| **Status** | Ready for @system.arch review |
+| **Status** | SAD complete — ready for `*setup-project` |
 
 ---
 
@@ -20,6 +20,8 @@
 |----------|------|
 | MRD | [project-context/1.define/mrd.md](./mrd.md) |
 | PRD | [project-context/1.define/prd.md](./prd.md) |
+| SAD | [project-context/2.build/sad.md](../2.build/sad.md) |
+| Architecture plan | [project-context/2.build/architecture-plan.md](../2.build/architecture-plan.md) |
 | Legacy copies (root) | `QuickPickr_MRD.md`, `QuickPickr_PRD.md` — superseded by `project-context/1.define/` |
 
 ---
@@ -64,9 +66,9 @@
 
 ## Recommended next steps
 
-1. **@system.arch** — Run `*create-sad` or `*create-sad --mvp` → `project-context/1.define/sad.md`
-2. Set `AAMAD_TARGET_RUNTIME` (`cursor-sdk` recommended for TS/Node MVP per adapter rules)
-3. **@project.mgr** — `*setup-project` after SAD approval
+1. **@project.mgr** — Run `*setup-project` per [architecture-plan.md](../2.build/architecture-plan.md) M0
+2. Set `AAMAD_TARGET_RUNTIME=cursor-sdk` (recorded in SAD Audit)
+3. **@backend.eng** — M1 indexer + M2 query service (FastAPI + Vertex AI Search)
 
 ---
 
@@ -76,8 +78,9 @@
 - [x] PRD: structured user stories, user trust risk, FR/NFR, API sketch, acceptance criteria, release plan
 - [x] Sources, Assumptions, Open Questions, Audit on both artifacts
 - [ ] Stakeholder sign-off on MRD/PRD
-- [ ] SAD created
-- [ ] Runtime selected and recorded in SAD Audit
+- [x] SAD created → `project-context/2.build/sad.md`
+- [x] Architecture plan → `project-context/2.build/architecture-plan.md`
+- [x] Runtime selected: `cursor-sdk` (SAD Audit)
 
 ---
 
@@ -87,3 +90,4 @@
 |-----------------|---------|--------|
 | 2026-05-19T00:00:00Z | @product-mgr | Context summary for Define → Build handoff |
 | 2026-05-19T12:00:00Z | @product-mgr | Updated for structured user stories and user trust risk sections |
+| 2026-05-19T18:00:00Z | @system.arch | Linked SAD and architecture-plan in 2.build |

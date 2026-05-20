@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from google.api_core.client_options import ClientOptions
@@ -8,8 +7,6 @@ from google.cloud import discoveryengine_v1 as discoveryengine
 
 from app.config import Settings
 from app.price_parser import extract_from_struct, parse_inr, struct_to_dict
-
-logger = logging.getLogger(__name__)
 
 RETAILER_DISPLAY: dict[str, str] = {
     "blinkit": "Blinkit",
@@ -28,20 +25,27 @@ def _client() -> discoveryengine.SearchServiceClient:
 
 
 def _document_fields(document: discoveryengine.Document) -> dict[str, Any]:
+    # Merge struct_data and derived_struct_data so we capture both structured
+    # fields and Website-data-store fields (title, link, displayLink, etc.).
     struct = struct_to_dict(document.struct_data)
-    if not struct and document.derived_struct_data:
-        struct = struct_to_dict(document.derived_struct_data)
-    return extract_from_struct(struct)
+    derived = struct_to_dict(document.derived_struct_data)
+    merged = {**derived, **struct}  # struct_data wins if both present
+    return extract_from_struct(merged)
 
 
 def _snippet_text(result: discoveryengine.SearchResponse.SearchResult) -> str:
-    if result.document and result.document.derived_struct_data:
-        snippets = result.document.derived_struct_data.get("snippets")
-        if snippets and isinstance(snippets, list) and len(snippets) > 0:
-            first = snippets[0]
-            if isinstance(first, dict):
-                return str(first.get("snippet", ""))
-            return str(first)
+    if not result.document:
+        return ""
+    derived = struct_to_dict(result.document.derived_struct_data)
+    snippets = derived.get("snippets")
+    if snippets and len(snippets) > 0:
+        first = snippets[0]
+        # Snippets may be proto MapComposite objects, not native dicts.
+        if hasattr(first, "get"):
+            return str(first.get("snippet", "") or "")
+        if isinstance(first, dict):
+            return str(first.get("snippet", ""))
+        return str(first)
     return ""
 
 

@@ -1,10 +1,17 @@
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Load repo-root .env when running locally (apps/query-service -> repo root)
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _ENV_FILE = _REPO_ROOT / ".env"
+
+# Also push .env values into os.environ so Google Cloud libraries
+# (which read GOOGLE_APPLICATION_CREDENTIALS from the OS environment, not
+# from the pydantic Settings object) can find them.
+if _ENV_FILE.exists():
+    load_dotenv(_ENV_FILE)
 
 
 class Settings(BaseSettings):

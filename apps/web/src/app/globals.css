@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --qp-primary: #0b57d0;
+  --qp-bg: #f6f7f9;
+  --qp-surface: #ffffff;
+  --qp-text: #111827;
+  --qp-text-muted: #6b7280;
+  --qp-border: #e5e7eb;
+  --qp-radius-md: 12px;
+}
+
+body {
+  @apply bg-qp-bg text-qp-text antialiased;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--qp-primary);
+  outline-offset: 2px;
+}

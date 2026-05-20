@@ -312,7 +312,14 @@ uvicorn app.main:app --reload --port 8080
 
 Open **http://127.0.0.1:8080/** for the dev search UI, or `POST /v1/search`. See [project-context/2.build/setup.md](project-context/2.build/setup.md).
 
-Full Next.js / React Native clients are planned per [architecture-plan.md](project-context/2.build/architecture-plan.md).
+**Web + mobile clients** are in `apps/web` and `apps/mobile`. See [frontend-plan.md](project-context/2.build/frontend-plan.md) and [frontend.md](project-context/2.build/frontend.md).
+
+```powershell
+npm install
+copy apps\web\.env.local.example apps\web\.env.local
+# Edit NEXT_PUBLIC_API_URL=http://127.0.0.1:8080
+npm run dev:web
+```
 
 ---
 

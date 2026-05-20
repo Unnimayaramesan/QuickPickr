@@ -1,0 +1,139 @@
+openapi: 3.1.0
+info:
+  title: QuickPickr Query Service
+  version: 0.1.0
+  description: Quick-commerce price comparison API
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local query service
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /v1/search:
+    post:
+      operationId: search
+      parameters:
+        - name: X-Session-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+      responses:
+        "200":
+          description: Ranked search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          description: Validation error
+        "429":
+          description: Rate limited
+        "503":
+          description: Service unavailable
+components:
+  schemas:
+    SearchRequest:
+      type: object
+      required: [query, pincode]
+      properties:
+        query:
+          type: string
+          minLength: 2
+          maxLength: 120
+        pincode:
+          type: string
+          pattern: "^[1-9][0-9]{5}$"
+    RowStatus:
+      type: string
+      enum: [available, unavailable, error]
+    SearchResultRow:
+      type: object
+      required: [retailer, retailerDisplayName, status, matchConfidence]
+      properties:
+        retailer:
+          type: string
+        retailerDisplayName:
+          type: string
+        title:
+          type: string
+        packSize:
+          type: string
+        imageUrl:
+          type: string
+        finalPriceInr:
+          type: number
+          nullable: true
+        unitPriceLabel:
+          type: string
+          nullable: true
+        matchConfidence:
+          type: string
+          enum: [high, low]
+        status:
+          $ref: "#/components/schemas/RowStatus"
+        crawledAt:
+          type: string
+          nullable: true
+        buyUrl:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+    SearchMeta:
+      type: object
+      properties:
+        cacheHit:
+          type: boolean
+        latencyMs:
+          type: integer
+        vertexServingConfig:
+          type: string
+          nullable: true
+    SearchResponse:
+      type: object
+      required: [query, pincode, searchedAt, results, meta]
+      properties:
+        query:
+          type: string
+        pincode:
+          type: string
+        searchedAt:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResultRow"
+        meta:
+          $ref: "#/components/schemas/SearchMeta"
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, error]
+        vertexConfigured:
+          type: boolean
+        credentialsPathSet:
+          type: boolean
+        servingConfig:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true

@@ -1,0 +1,26 @@
+{
+  "blinkit": {
+    "displayName": "Blinkit",
+    "logo": "/retailers/blinkit.svg",
+    "deepLinkScheme": "blinkit://",
+    "httpsFallback": true
+  },
+  "zepto": {
+    "displayName": "Zepto",
+    "logo": "/retailers/zepto.svg",
+    "deepLinkScheme": "zepto://",
+    "httpsFallback": true
+  },
+  "bigbasket": {
+    "displayName": "BigBasket",
+    "logo": "/retailers/bigbasket.svg",
+    "deepLinkScheme": "bigbasket://",
+    "httpsFallback": true
+  },
+  "instamart": {
+    "displayName": "Swiggy Instamart",
+    "logo": "/retailers/instamart.svg",
+    "deepLinkScheme": "swiggy://",
+    "httpsFallback": true
+  }
+}

@@ -57,7 +57,14 @@ def extract_from_struct(struct: dict[str, Any]) -> dict[str, Any]:
         or ""
     )
     pack_size = struct.get("packSize") or struct.get("pack_size") or struct.get("size") or ""
-    product_url = struct.get("productUrl") or struct.get("product_url") or struct.get("uri") or ""
+    # Website-schema docs use `link`; structured docs use `productUrl`/`product_url`/`uri`
+    product_url = (
+        struct.get("link")
+        or struct.get("productUrl")
+        or struct.get("product_url")
+        or struct.get("uri")
+        or ""
+    )
     image_url = struct.get("imageUrl") or struct.get("image_url") or ""
 
     price = struct.get("priceInr") or struct.get("price_inr") or struct.get("price")

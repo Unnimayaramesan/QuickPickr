@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "QuickPickr",
+    "slug": "quickpickr",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "quickpickr",
+    "userInterfaceStyle": "light",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.quickpickr.app" },
+    "android": {
+      "adaptiveIcon": { "backgroundColor": "#0B57D0" },
+      "package": "com.quickpickr.app"
+    }
+  }
+}

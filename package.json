@@ -1,0 +1,18 @@
+{
+  "name": "quickpickr",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/ensure-next-swc.js",
+    "dev:web": "npm run dev -w @quickpickr/web",
+    "dev:mobile": "npm run start -w @quickpickr/mobile",
+    "build:web": "npm run build -w @quickpickr/web",
+    "typecheck": "npm run typecheck -w @quickpickr/api-client && npm run typecheck -w @quickpickr/shared && npm run typecheck -w @quickpickr/web"
+  },
+  "dependencies": {
+    "@next/swc-win32-x64-msvc": "^14.2.33"
+  }
+}

@@ -67,6 +67,17 @@ export function HomeScreen({
       const client = await getApiClient();
       const res = await client.search({ query: query.trim(), pincode: pincode.trim() });
       setData(res);
+      for (const row of res.results) {
+        if (row.status === "available" && isStale(row.crawledAt)) {
+          track("stale_row_shown", {
+            sessionId: sessionId.current,
+            retailer: row.retailer,
+            query: res.query,
+            pincode: res.pincode,
+            searchedAt: res.searchedAt,
+          });
+        }
+      }
       await mobileStorage.setItem(STORAGE_KEYS.pincode, pincode.trim());
       const raw = await mobileStorage.getItem(STORAGE_KEYS.history);
       const next = pushHistory(parseHistory(raw), {

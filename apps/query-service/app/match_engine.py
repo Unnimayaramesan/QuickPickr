@@ -5,6 +5,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.vertex_search import ALL_RETAILERS
+
+_ALLOWED_RETAILERS = frozenset(ALL_RETAILERS)
+
 _TOKEN = re.compile(r"[a-z0-9.%]+")
 
 
@@ -110,6 +114,9 @@ def refine_hit(
 
 
 def pick_best_for_retailer(query: str, hits: list[dict[str, Any]], settings: Any) -> dict[str, Any] | None:
+    hits = [h for h in hits if h.get("retailer") in _ALLOWED_RETAILERS]
+    if not hits:
+        return None
     refined = [refine_hit(query, h, settings) for h in hits]
     kept = [h for h in refined if not h.get("_suppress")]
     pool = kept or refined

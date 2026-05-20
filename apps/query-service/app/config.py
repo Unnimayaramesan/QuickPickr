@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Self
 
@@ -23,7 +24,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    vertex_search_serving_config: str
+    # Empty lets uvicorn boot without repo-root `.env`; Vertex stays unusable until configured.
+    vertex_search_serving_config: str = ""
     google_application_credentials: str | None = None
 
     vertex_page_size: int = 25
@@ -61,5 +63,17 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
+_vertex_warned = False
+
+
 def get_settings() -> Settings:
-    return Settings()
+    global _vertex_warned
+    s = Settings()
+    if not (s.vertex_search_serving_config or "").strip():
+        if not _vertex_warned:
+            _vertex_warned = True
+            logging.getLogger(__name__).warning(
+                "VERTEX_SEARCH_SERVING_CONFIG is unset: copy .env.example to repo-root .env and fill "
+                "Vertex fields. Search will return errors until configured.",
+            )
+    return s

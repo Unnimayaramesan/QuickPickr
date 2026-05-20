@@ -280,46 +280,72 @@ project-context/1.define/context-summary.md
 3. Follow [CHECKLIST.md](CHECKLIST.md) for phase order.  
 4. Reference files with `@project-context/1.define/prd.md` in prompts.
 
-### 4. Environment variables (Phase 2 — when scaffolded)
+### 4. Environment variables
 
-A `.env.example` will be added during `*setup-project`. Expected variables include:
-
-```bash
-# Google Cloud / Vertex AI Search
-GOOGLE_CLOUD_PROJECT=
-VERTEX_AI_SEARCH_DATA_STORE_ID=
-# Optional: application runtime
-AAMAD_TARGET_RUNTIME=cursor-sdk
-```
-
-Do not commit secrets. See `setup.md` after the setup epic completes.
-
-### 5. Run Vertex search locally (available now)
-
-If your repo-root `.env` has `VERTEX_SEARCH_SERVING_CONFIG` and `GOOGLE_APPLICATION_CREDENTIALS` set:
+1. Copy the template and fill in Vertex + GCP credentials (see [backend-plan §1 — Vertex setup](./project-context/2.build/backend-plan.md#1-vertex-ai-search-discovery-engine--role-in-quickpickr)):
 
 ```powershell
-cd c:\Users\welcome\Documents\quick-pickr-project
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r apps\query-service\requirements.txt
-python scripts\verify_vertex.py "Amul Gold 500 ml"
-
-cd apps\query-service
-$env:PYTHONPATH = "."
-uvicorn app.main:app --reload --port 8080
+copy .env.example .env
+# Edit .env: VERTEX_SEARCH_SERVING_CONFIG, GOOGLE_APPLICATION_CREDENTIALS
 ```
 
-Open **http://127.0.0.1:8080/** for the dev search UI, or `POST /v1/search`. See [project-context/2.build/setup.md](project-context/2.build/setup.md).
-
-**Web + mobile clients** are in `apps/web` and `apps/mobile`. See [frontend-plan.md](project-context/2.build/frontend-plan.md) and [frontend.md](project-context/2.build/frontend.md).
+2. Web client → API URL:
 
 ```powershell
-npm install
 copy apps\web\.env.local.example apps\web\.env.local
-# Edit NEXT_PUBLIC_API_URL=http://127.0.0.1:8080
-npm run dev:web
+# Ensure NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 for local FastAPI
 ```
+
+Never commit `.env`, `.secrets/`, or service-account JSON.
+
+### 5. Install dependencies (fresh clone)
+
+From the repository root:
+
+```powershell
+npm install --include=optional
+pip install -r apps\query-service\requirements.txt
+```
+
+Use a Python 3.11+ virtual environment if you prefer (`python -m venv .venv` then activate before `pip install`).
+
+### 6. Happy path — web + API together
+
+Start **Next.js (port 3000)** and the **FastAPI query service (port 8080)** with one command:
+
+```powershell
+npm run dev
+```
+
+Then open **http://localhost:3000**, enter **Amul Gold 500 ml** and pincode **560034**, and search. You should see a **four-row** ranked table (available / unavailable / error per retailer), **deep-link Buy** buttons using HTTPS PDP URLs (native schemes from `config/retailers.json` apply where applicable), and latency/cache hints under the table.
+
+**Smoke-check API only (PowerShell):**
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8080/v1/search -Method POST -ContentType "application/json" -Body '{"query":"Amul Gold 500 ml","pincode":"560034"}'
+```
+
+**Contract sanity:** `npm run verify:contract` ensures `packages/api-contract/openapi.yaml` is present.
+
+### 7. Mobile (optional)
+
+```powershell
+npm run dev:mobile
+```
+
+Set `EXPO_PUBLIC_API_URL` (e.g. in `.env` at repo root or Expo env) to your machine’s reachable API URL when testing on a device.
+
+### 8. Vertex-only CLI verify
+
+```powershell
+python scripts\verify_vertex.py "Amul Gold 500 ml"
+```
+
+See [setup.md](./project-context/2.build/setup.md) for troubleshooting (`403`, empty results, etc.).
+
+### 9. Integration doc
+
+Full wiring checklist: **[integration-plan.md](./project-context/2.build/integration-plan.md)** (includes **§7 QA / testing**: PRD acceptance matrix, smoke checklist, CI roadmap).
 
 ---
 
@@ -342,6 +368,7 @@ quick-pickr-project/
 │   │   ├── setup.md          # (after *setup-project)
 │   │   ├── frontend.md
 │   │   ├── backend.md
+│   │   ├── integration-plan.md
 │   │   ├── integration.md
 │   │   └── qa.md
 │   └── 3.deliver/            # Phase 3 — deployment (future)
@@ -356,7 +383,7 @@ quick-pickr-project/
 └── QuickPickr_PRD.md         # Pointer → project-context/1.define/prd.md
 ```
 
-**Note:** `web/`, `api/`, and `mobile/` directories will appear after Phase 2 setup. Current repo state is **requirements-only**.
+**Note:** Apps live under `apps/web`, `apps/mobile`, and `apps/query-service`. From the repo root, **`npm run dev`** starts Next.js (:3000) and the FastAPI query service (:8080).
 
 ---
 
@@ -369,6 +396,7 @@ quick-pickr-project/
 | [Context summary](project-context/1.define/context-summary.md) | Phase 1 handoff for architects and builders |
 | [SAD](project-context/2.build/sad.md) | Solution architecture (FastAPI, Vertex AI Search, clients) |
 | [Architecture plan](project-context/2.build/architecture-plan.md) | Milestones, SLOs, implementation status |
+| [Integration plan](project-context/2.build/integration-plan.md) | E2E wiring, Vertex/Redis/analytics, env matrix, testing |
 | [CHECKLIST.md](CHECKLIST.md) | Step-by-step AAMAD execution |
 | [AGENTS.md](AGENTS.md) | Agent persona quick reference |
 

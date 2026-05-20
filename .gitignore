@@ -3,14 +3,17 @@ node_modules/
 .next/
 dist/
 build/
-
-# Python
-__pycache__/
-*.pyc
-
-# Env
-.env
+.
+# Secrets
+.secrets/
+*.json
 
 # OS
 .DS_Store
 Thumbs.db
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.secrets/

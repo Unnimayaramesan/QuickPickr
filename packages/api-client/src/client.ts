@@ -49,6 +49,7 @@ export class QuickPickrClient {
     const messages: Record<number, string> = {
       400: "Please check your product name and pincode.",
       429: "Too many searches. Please wait a moment and try again.",
+      502: "Search is temporarily unavailable. Please try again.",
       503: "Search is temporarily unavailable. Please try again.",
     };
     return new ApiError(messages[res.status] ?? detail, res.status, body);

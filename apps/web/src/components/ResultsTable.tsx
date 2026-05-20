@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import type { SearchResultRow } from "@quickpickr/api-client";
 import type { AffiliateMap, Locale } from "@quickpickr/shared";
 import {
@@ -21,6 +22,7 @@ export interface ResultsTableProps {
   affiliates: AffiliateMap;
   query: string;
   pincode: string;
+  searchedAt: string;
 }
 
 export function ResultsTable({
@@ -30,9 +32,25 @@ export function ResultsTable({
   affiliates,
   query,
   pincode,
+  searchedAt,
 }: ResultsTableProps) {
   const sorted = sortResults(rows);
   const lowest = lowestPrice(sorted);
+
+  useEffect(() => {
+    const ordered = sortResults(rows);
+    for (const row of ordered) {
+      if (row.status === "available" && isStale(row.crawledAt)) {
+        track("stale_row_shown", {
+          sessionId,
+          retailer: row.retailer,
+          query,
+          pincode,
+          searchedAt,
+        });
+      }
+    }
+  }, [rows, searchedAt, sessionId, query, pincode]);
 
   const handleBuy = (row: SearchResultRow) => {
     if (!row.buyUrl) return;

@@ -7,10 +7,16 @@
   ],
   "scripts": {
     "postinstall": "node scripts/ensure-next-swc.js",
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev:web\" \"node scripts/run-query-service-dev.cjs\"",
     "dev:web": "npm run dev -w @quickpickr/web",
+    "dev:api": "node scripts/run-query-service-dev.cjs",
     "dev:mobile": "npm run start -w @quickpickr/mobile",
     "build:web": "npm run build -w @quickpickr/web",
+    "verify:contract": "node scripts/check-openapi-contract.cjs",
     "typecheck": "npm run typecheck -w @quickpickr/api-client && npm run typecheck -w @quickpickr/shared && npm run typecheck -w @quickpickr/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   },
   "dependencies": {
     "@next/swc-win32-x64-msvc": "^14.2.33"

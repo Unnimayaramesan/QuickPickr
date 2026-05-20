@@ -9,6 +9,9 @@ from google.cloud import discoveryengine_v1 as discoveryengine
 
 from app.config import Settings
 from app.price_parser import extract_from_struct, parse_inr, struct_to_dict
+from app.vertex_search import ALL_RETAILERS
+
+_QP_RETAILERS = frozenset(ALL_RETAILERS)
 
 
 def _client() -> discoveryengine.SearchServiceClient:
@@ -99,7 +102,13 @@ def search_filtered(
             if not fields.get("title") and snippet:
                 fields["title"] = snippet[:120]
 
-            if not fields.get("retailer"):
+            guess = fields.get("retailer")
+            if guess is not None:
+                if guess not in _QP_RETAILERS:
+                    continue
+                if guess != retailer_key:
+                    continue
+            else:
                 fields["retailer"] = retailer_key
             ranked += 1
             fields["_vertex_rank"] = ranked
@@ -149,6 +158,9 @@ def search_vertex_unfiltered(query: str, settings: Settings, page_size: int | No
             fields["finalPriceInr"] = parse_inr(snippet) or parse_inr(fields.get("title") or "")
         if not fields.get("title") and snippet:
             fields["title"] = snippet[:120]
+        guess = fields.get("retailer")
+        if guess not in _QP_RETAILERS:
+            continue
         ranked += 1
         fields["_vertex_rank"] = ranked
         parsed.append(fields)

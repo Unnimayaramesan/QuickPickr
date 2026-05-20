@@ -6,8 +6,9 @@ export async function pincodeFromCoords(lat: number, lon: number): Promise<strin
   url.searchParams.set("format", "json");
   url.searchParams.set("addressdetails", "1");
 
-  const res = await fetch(url.toString(), {
-    headers: { "User-Agent": "QuickPickr/1.0 (price comparison app)" },
+  const fetchBound = globalThis.fetch.bind(globalThis);
+  const res = await fetchBound(url.toString(), {
+    headers: { "User-Agent": "QuickPickr/1.0 (price comparison app; contact: dev@quickpickr.local)" },
   });
   if (!res.ok) return null;
   const data = (await res.json()) as { address?: { postcode?: string } };

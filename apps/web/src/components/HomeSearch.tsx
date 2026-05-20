@@ -141,6 +141,7 @@ export function HomeSearch() {
               affiliates={affiliateConfig}
               query={data.query}
               pincode={data.pincode}
+              searchedAt={data.searchedAt}
             />
           )}
           <p className="mt-2 text-xs text-qp-muted">

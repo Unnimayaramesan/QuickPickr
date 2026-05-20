@@ -4,7 +4,7 @@
 
 QuickPickr is a quick-commerce price comparison product for shoppers in India. Enter a product name and pincode once, compare live prices across **Blinkit**, **Zepto**, **BigBasket**, and **Swiggy Instamart**, and jump to the cheapest retailer to complete your purchase there.
 
-This repository is built with the [AAMAD](https://pypi.org/project/aamad/) (AI-Assisted Multi-Agent Application Development) framework. Phase 1 requirements and solution architecture are complete; application scaffolding begins with `@project.mgr` `*setup-project`.
+This repository is built with the [AAMAD](https://pypi.org/project/aamad/) (AI-Assisted Multi-Agent Application Development) framework. **Phase 1** (MRD, PRD, SAD) is complete. **Phase 2** delivers an MVP monorepo: Next.js web, Expo mobile, FastAPI query service, shared TypeScript packages, and Vertex AI Search integration—see [Getting Started](#getting-started) and [npm scripts](#npm-scripts-root).
 
 ---
 
@@ -17,6 +17,7 @@ This repository is built with the [AAMAD](https://pypi.org/project/aamad/) (AI-A
 - [Application Architecture](#application-architecture)
 - [Development Workflow (AAMAD Agents)](#development-workflow-aamad-agents)
 - [Getting Started](#getting-started)
+- [npm scripts (root)](#npm-scripts-root)
 - [Project Structure](#project-structure)
 - [Documentation](#documentation)
 - [Next Steps for Contributors](#next-steps-for-contributors)
@@ -41,7 +42,7 @@ QuickPickr replaces that workflow with a single search:
 | **Target users** | Urban India shoppers using 2+ quick-commerce apps |
 | **Retailers (v1)** | Blinkit, Zepto, BigBasket, Swiggy Instamart |
 | **Monetization (future)** | Affiliate links, clearly labeled sponsored rows |
-| **Status** | Define phase complete — [PRD](project-context/1.define/prd.md) v1.1 |
+| **Status** | Define complete; **Build MVP** — web, mobile, query API in repo ([architecture-plan](project-context/2.build/architecture-plan.md)) |
 | **Primary persona** | Priya — Bengaluru professional, price-sensitive on staples |
 
 ---
@@ -160,7 +161,7 @@ Content-Type: application/json
 }
 ```
 
-See [PRD §12](project-context/1.define/prd.md#12-api-contract-mvp) for the full response schema.
+OpenAPI snapshot: `packages/api-contract/openapi.yaml` (regenerate with `python scripts/export_openapi.py` when the FastAPI schema changes). See [PRD §12](project-context/1.define/prd.md#12-api-contract-mvp) for the full response schema.
 
 ### Performance targets
 
@@ -212,24 +213,26 @@ flowchart LR
 | Agent | Phase | Role | Primary output |
 |-------|-------|------|----------------|
 | **@product-mgr** | Define | Market research, MRD, PRD, context handoff | `project-context/1.define/mrd.md`, `prd.md` |
-| **@system.arch** | Define | Solution architecture, NFRs, technical decisions | `project-context/1.define/sad.md` |
+| **@system.arch** | Define | Solution architecture, NFRs, technical decisions | `project-context/2.build/sad.md` |
 | **@project.mgr** | Build | Scaffold repo, dependencies, environment | `project-context/2.build/setup.md` |
-| **@frontend.eng** | Build | Web/mobile UI, search and results screens | `project-context/2.build/frontend.md` |
-| **@backend.eng** | Build | Query API, Vertex AI Search integration, indexer | `project-context/2.build/backend.md` |
-| **@integration.eng** | Build | Wire clients to API, end-to-end flows | `project-context/2.build/integration.md` |
-| **@qa.eng** | Build | Smoke tests, golden-set validation, trust ACs | `project-context/2.build/qa.md` |
+| **@frontend.eng** | Build | Web/mobile UI, search and results screens | `frontend.md`, [frontend-plan.md](project-context/2.build/frontend-plan.md) |
+| **@backend.eng** | Build | Query API, Vertex AI Search integration, indexer | `backend.md`, [backend-plan.md](project-context/2.build/backend-plan.md) |
+| **@integration.eng** | Build | Wire clients to API, end-to-end flows | `integration.md`, [integration-plan.md](project-context/2.build/integration-plan.md) |
+| **@qa.eng** | Build | Smoke tests, golden-set validation, trust ACs | `qa.md`, [qa-plan.md](project-context/2.build/qa-plan.md) |
 
 Invoke agents in Cursor chat with `@product-mgr`, `@backend.eng`, etc. See [AGENTS.md](AGENTS.md) and [.cursor/agents/](.cursor/agents/) for full persona definitions.
 
 ### Phase 2 epics
 
-| Epic | Persona | Command | Artifact |
-|------|---------|---------|----------|
-| Setup | @project.mgr | `*setup-project` | `setup.md` |
-| Frontend | @frontend.eng | `*develop-fe` | `frontend.md` |
-| Backend | @backend.eng | `*develop-be` | `backend.md` |
-| Integration | @integration.eng | `*integrate-api` | `integration.md` |
-| QA | @qa.eng | `*qa` | `qa.md` |
+| Epic | Persona | Command | Epic log | Detailed plan |
+|------|---------|---------|----------|---------------|
+| Setup | @project.mgr | `*setup-project` | `setup.md` | — |
+| Frontend | @frontend.eng | `*develop-fe` | `frontend.md` | `frontend-plan.md` |
+| Backend | @backend.eng | `*develop-be` | `backend.md` | `backend-plan.md` |
+| Integration | @integration.eng | `*integrate-api` | `integration.md` | `integration-plan.md` |
+| QA | @qa.eng | `*qa` | `qa.md` | `qa-plan.md` |
+
+All paths under `project-context/2.build/` unless noted.
 
 ### Runtime adapter
 
@@ -251,8 +254,9 @@ Adapter rules live in `.cursor/rules/adapter-*.mdc`. The **search/index path** u
 | Tool | Purpose |
 |------|---------|
 | [Cursor](https://cursor.com/) (recommended) or VS Code + Copilot | AAMAD agent workflows |
-| [Node.js](https://nodejs.org/) LTS | Web app and query API (Phase 2) |
-| [Google Cloud](https://cloud.google.com/) account | Vertex AI Search, Cloud Run (Phase 2) |
+| [Node.js](https://nodejs.org/) 18+ | npm workspaces (web, mobile, shared packages) |
+| [Python](https://www.python.org/) 3.11+ | FastAPI query service (`apps/query-service`) |
+| [Google Cloud](https://cloud.google.com/) account | Vertex AI Search (Discovery Engine API) |
 | Git | Version control |
 
 Optional: `pip install aamad` if re-initializing framework files in a new clone.
@@ -296,7 +300,7 @@ copy apps\web\.env.local.example apps\web\.env.local
 # Ensure NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 for local FastAPI
 ```
 
-Never commit `.env`, `.secrets/`, or service-account JSON.
+Never commit `.env`, `.secrets/`, or service-account JSON. Do **not** add a blanket `*.json` rule to `.gitignore`—it hides tracked config and manifests (see [qa-plan ISS-QA-001](project-context/2.build/qa-plan.md#6-issues-found)).
 
 ### 5. Install dependencies (fresh clone)
 
@@ -319,13 +323,13 @@ npm run dev
 
 Then open **http://localhost:3000**, enter **Amul Gold 500 ml** and pincode **560034**, and search. You should see a **four-row** ranked table (available / unavailable / error per retailer), **deep-link Buy** buttons using HTTPS PDP URLs (native schemes from `config/retailers.json` apply where applicable), and latency/cache hints under the table.
 
-**Smoke-check API only (PowerShell):**
+**Smoke-check API only (PowerShell):** with the API running (`npm run dev` or `npm run dev:api`):
 
 ```powershell
 Invoke-RestMethod -Uri http://127.0.0.1:8080/v1/search -Method POST -ContentType "application/json" -Body '{"query":"Amul Gold 500 ml","pincode":"560034"}'
 ```
 
-**Contract sanity:** `npm run verify:contract` ensures `packages/api-contract/openapi.yaml` is present.
+For automated checks without a browser, see [§9 Verify and test](#9-verify-and-test-no-browser).
 
 ### 7. Mobile (optional)
 
@@ -343,9 +347,36 @@ python scripts\verify_vertex.py "Amul Gold 500 ml"
 
 See [setup.md](./project-context/2.build/setup.md) for troubleshooting (`403`, empty results, etc.).
 
-### 9. Integration doc
+### 9. Verify and test (no browser)
 
-Full wiring checklist: **[integration-plan.md](./project-context/2.build/integration-plan.md)** (includes **§7 QA / testing**: PRD acceptance matrix, smoke checklist, CI roadmap).
+From the repo root:
+
+```powershell
+npm run verify:contract    # OpenAPI snapshot present
+npm run typecheck          # api-client, shared, web
+npm run typecheck -w @quickpickr/mobile
+npm run build:web          # Next.js production build
+npm run qa:api             # In-process /health + /v1/search smoke
+```
+
+Optional rate-limit check: `$env:QA_RATE_LIMIT="1"; npm run qa:api` (expects **429** on the 31st request for the same `X-Session-Id`).
+
+Latest automated results: **[qa-plan.md](./project-context/2.build/qa-plan.md)** §3. Wiring and release checklist: **[integration-plan.md](./project-context/2.build/integration-plan.md)** §7.
+
+---
+
+## npm scripts (root)
+
+| Script | What it does |
+|--------|----------------|
+| `npm run dev` | **Web (:3000)** + **API (:8080)** via [concurrently](https://www.npmjs.com/package/concurrently) |
+| `npm run dev:web` | Next.js only |
+| `npm run dev:api` | FastAPI only (`scripts/run-query-service-dev.cjs`, sets `PYTHONPATH`) |
+| `npm run dev:mobile` | Expo dev server |
+| `npm run build:web` | Production Next.js build |
+| `npm run typecheck` | TypeScript: api-client, shared, web |
+| `npm run verify:contract` | Ensures `packages/api-contract/openapi.yaml` exists |
+| `npm run qa:api` | Python smoke: health, search shape, validation (see `scripts/qa_api_smoke.py`) |
 
 ---
 
@@ -353,37 +384,43 @@ Full wiring checklist: **[integration-plan.md](./project-context/2.build/integra
 
 ```
 quick-pickr-project/
-├── README.md                 # This file — QuickPickr project overview
+├── README.md                 # This file
 ├── AGENTS.md                 # AAMAD agent index
 ├── CHECKLIST.md              # Define → Build → Deliver checklist
+├── package.json              # Root workspaces + dev/qa scripts
+├── .env.example              # Vertex + API URLs (copy to .env)
 │
-├── project-context/          # Auditable artifacts (IDE-agnostic)
-│   ├── 1.define/             # Phase 1 — requirements (complete)
-│   │   ├── mrd.md            # Market Requirements Document
-│   │   ├── prd.md            # Product Requirements Document
-│   │   └── context-summary.md
-│   ├── 2.build/              # Phase 2 — architecture + implementation docs
-│   │   ├── sad.md            # Solution Architecture Document
-│   │   ├── architecture-plan.md
-│   │   ├── setup.md          # (after *setup-project)
-│   │   ├── frontend.md
-│   │   ├── backend.md
-│   │   ├── integration-plan.md
-│   │   ├── integration.md
-│   │   └── qa.md
-│   └── 3.deliver/            # Phase 3 — deployment (future)
+├── apps/
+│   ├── web/                  # Next.js 14 — search UI, history, settings
+│   ├── mobile/               # Expo — React Native client
+│   └── query-service/        # FastAPI — POST /v1/search, GET /health
 │
-├── .cursor/                  # Cursor / AAMAD framework
-│   ├── agents/               # Persona definitions (@product-mgr, etc.)
-│   ├── rules/                # Always-on rules and runtime adapters
-│   ├── templates/            # MRD, PRD, SAD templates
-│   └── prompts/              # Phase-specific prompts
+├── packages/
+│   ├── api-contract/         # OpenAPI snapshot (openapi.yaml)
+│   ├── api-client/           # QuickPickrClient (web + mobile)
+│   ├── shared/               # sort, freshness, analytics, affiliates
+│   └── design-tokens/
 │
-├── QuickPickr_MRD.md         # Pointer → project-context/1.define/mrd.md
-└── QuickPickr_PRD.md         # Pointer → project-context/1.define/prd.md
+├── config/
+│   ├── retailers.json        # Deep-link patterns per retailer
+│   └── affiliates.json       # Optional CTA query params
+│
+├── scripts/
+│   ├── run-query-service-dev.cjs
+│   ├── qa_api_smoke.py
+│   ├── check-openapi-contract.cjs
+│   └── verify_vertex.py
+│
+├── project-context/
+│   ├── 1.define/             # MRD, PRD, context-summary
+│   └── 2.build/              # SAD, plans, epic logs (setup, frontend, backend, …)
+│
+├── .cursor/                  # AAMAD agents, rules, templates
+├── QuickPickr_MRD.md         # → project-context/1.define/mrd.md
+└── QuickPickr_PRD.md         # → project-context/1.define/prd.md
 ```
 
-**Note:** Apps live under `apps/web`, `apps/mobile`, and `apps/query-service`. From the repo root, **`npm run dev`** starts Next.js (:3000) and the FastAPI query service (:8080).
+**Local URLs:** Web **http://localhost:3000** · API **http://127.0.0.1:8080** · Dev UI (optional) **http://127.0.0.1:8080/** when static assets are present.
 
 ---
 
@@ -396,7 +433,13 @@ quick-pickr-project/
 | [Context summary](project-context/1.define/context-summary.md) | Phase 1 handoff for architects and builders |
 | [SAD](project-context/2.build/sad.md) | Solution architecture (FastAPI, Vertex AI Search, clients) |
 | [Architecture plan](project-context/2.build/architecture-plan.md) | Milestones, SLOs, implementation status |
-| [Integration plan](project-context/2.build/integration-plan.md) | E2E wiring, Vertex/Redis/analytics, env matrix, testing |
+| [Setup](project-context/2.build/setup.md) | Environment and local runbook |
+| [Backend plan](project-context/2.build/backend-plan.md) | Vertex env, query service design |
+| [Backend log](project-context/2.build/backend.md) | @backend.eng epic summary |
+| [Frontend plan](project-context/2.build/frontend-plan.md) | Web/mobile scope |
+| [Frontend log](project-context/2.build/frontend.md) | @frontend.eng epic summary |
+| [Integration plan](project-context/2.build/integration-plan.md) | E2E wiring, env matrix, **§7 testing** |
+| [QA plan](project-context/2.build/qa-plan.md) | Test matrix, last run results, defects |
 | [CHECKLIST.md](CHECKLIST.md) | Step-by-step AAMAD execution |
 | [AGENTS.md](AGENTS.md) | Agent persona quick reference |
 
@@ -415,11 +458,13 @@ quick-pickr-project/
 | Step | Owner | Action | Output |
 |------|-------|--------|--------|
 | 1 | @system.arch | SAD + architecture plan | [sad.md](project-context/2.build/sad.md), [architecture-plan.md](project-context/2.build/architecture-plan.md) |
-| 2 | @project.mgr | `*setup-project` | Repo scaffold, `.env.example`, `setup.md` |
-| 4 | @backend.eng | `*develop-be` | Query API, Vertex AI Search, indexer |
-| 5 | @frontend.eng | `*develop-fe` | Next.js + React Native search UI |
-| 6 | @integration.eng | `*integrate-api` | End-to-end search → click-out |
-| 7 | @qa.eng | `*qa` | Golden-set tests (e.g. `Amul Gold 500 ml` + `560034`) |
+| 2 | @project.mgr | `*setup-project` | [setup.md](project-context/2.build/setup.md), `.env.example` |
+| 3 | @backend.eng | `*develop-be` | `apps/query-service`, [backend.md](project-context/2.build/backend.md) |
+| 4 | @frontend.eng | `*develop-fe` | `apps/web`, `apps/mobile`, [frontend.md](project-context/2.build/frontend.md) |
+| 5 | @integration.eng | `*integrate-api` | `npm run dev`, [integration-plan.md](project-context/2.build/integration-plan.md) |
+| 6 | @qa.eng | `*qa` | `npm run qa:api`, [qa-plan.md](project-context/2.build/qa-plan.md); staging Vertex for PRD AC-1–AC-4 |
+
+**Current gap for production sign-off:** PRD golden-path tests (≥3 priced retailers, live price spot-check, device deep links) need a **configured Vertex index** and staging environment—not only in-repo smoke tests.
 
 ### How to contribute
 

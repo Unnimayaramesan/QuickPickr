@@ -13,6 +13,7 @@
     "dev:mobile": "npm run start -w @quickpickr/mobile",
     "build:web": "npm run build -w @quickpickr/web",
     "verify:contract": "node scripts/check-openapi-contract.cjs",
+    "qa:api": "python scripts/qa_api_smoke.py",
     "typecheck": "npm run typecheck -w @quickpickr/api-client && npm run typecheck -w @quickpickr/shared && npm run typecheck -w @quickpickr/web"
   },
   "devDependencies": {

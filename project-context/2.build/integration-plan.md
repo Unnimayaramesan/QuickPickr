@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Version** | 1.1 |
+| **Version** | 1.2 |
 | **Updated** | 2026-05-21 |
 | **Author** | @integration.eng |
 | **Inputs** | [prd.md](../1.define/prd.md), [mrd.md](../1.define/mrd.md), [sad.md](./sad.md), [frontend-plan.md](./frontend-plan.md), [backend-plan.md](./backend-plan.md) |
@@ -119,6 +119,9 @@ Traceability: [prd.md §13 Acceptance Criteria](../1.define/prd.md#131-golden-pa
 |---------|---------|
 | `npm run verify:contract` | Fails CI if `packages/api-contract/openapi.yaml` is missing or empty |
 | `npm run typecheck` | TS packages + web compile check |
+| `npm run typecheck -w @quickpickr/mobile` | Expo app TypeScript (not in default root `typecheck` yet) |
+| `npm run qa:api` | In-process FastAPI smoke: `/health`, `/v1/search` shape, validation error; optional `QA_RATE_LIMIT=1` for 429 |
+| `python scripts/qa_api_smoke.py` | Same as `npm run qa:api` (direct Python) |
 | `python scripts/verify_vertex.py "<query>"` | ADC + serving config smoke; blended search hits (requires `.env`) |
 | `Invoke-RestMethod` / curl `POST /v1/search` | API shape + four-row contract with running `uvicorn` |
 | Manual `npm run dev` | Web + API; UI skeleton (200ms), errors 400/429, session header |
@@ -208,6 +211,7 @@ Mirror PRD §13.3 scale over time (50×5 pincode matrix in staging).
 | Non-target retailers in index (e.g. Flipkart) | **Strict filter:** `search_filtered` + `pick_best_for_retailer` only keep `blinkit` / `zepto` / `bigbasket` / `instamart` |
 | Next lockfile patcher / workspaces | Root **`.npmrc` `optional=true`**; **no** `apps/web/package-lock.json`; single root lockfile |
 | Two processes for E2E | **`npm run dev`** starts **web + api** together |
+| Root `.gitignore` must not use `*.json` or a lone `.` line | Treats tracked JSON / repo paths incorrectly; use `.secrets/` for credentials only — see [qa-plan §6](./qa-plan.md#6-issues-found) ISS-QA-001 |
 
 ---
 
@@ -223,8 +227,9 @@ Mirror PRD §13.3 scale over time (50×5 pincode matrix in staging).
 
 | When | What |
 |------|------|
-| 2026-05-20 | `npm run dev` (concurrently), contract check script, retailer strict filter, stale analytics web+mobile, Nominatim fetch bind, README happy path |
+| 2026-05-20 | `npm run dev` (concurrently), contract check, retailer strict filter, stale analytics, README path; **`npm run qa:api`** / `scripts/qa_api_smoke.py` in §7.1 |
 | 2026-05-21 | Expanded §7 QA/testing (PRD AC matrix, smoke checklist, automation roadmap, load/a11y) |
+| 2026-05-21 | QA re-run: `qa-plan.md` v1.1; `.gitignore` hygiene note in §8 |
 
 ---
 
@@ -248,3 +253,4 @@ Mirror PRD §13.3 scale over time (50×5 pincode matrix in staging).
 |-----|---------|--------|
 | 2026-05-20 | @integration.eng | integration-plan.md v1 + wiring |
 | 2026-05-21 | @integration.eng | QA/testing section expansion |
+| 2026-05-21 | @integration.eng | §8 gitignore guardrail; progress log (QA re-run) |

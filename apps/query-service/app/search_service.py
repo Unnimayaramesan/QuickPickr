@@ -221,6 +221,26 @@ async def _compute_response(body: SearchRequest, settings: Settings) -> dict[str
     return payload
 
 
+def _choose_cache_ttl(payload: dict[str, Any], settings: Settings) -> int:
+    """Pick a per-payload TTL.
+
+    All-error responses (every retailer row in status=error) get the short
+    `negative_cache_ttl_seconds` so a transient Vertex/retailer failure cannot
+    poison the cache for the full success TTL. Mixed and all-success responses
+    keep the configured `search_cache_ttl_seconds`. A retailer that returned
+    `status=unavailable` (a real "no products at this pincode" signal from the
+    adapter) is treated as a valid answer and does NOT count as an error.
+    """
+    results = payload.get("results") or []
+    if not results:
+        # No rows at all is itself a degraded response — treat like an error.
+        return settings.negative_cache_ttl_seconds
+    statuses = {r.get("status") for r in results if isinstance(r, dict)}
+    if statuses and statuses.issubset({"error"}):
+        return settings.negative_cache_ttl_seconds
+    return settings.search_cache_ttl_seconds
+
+
 async def run_search_cached(body: SearchRequest, settings: Settings) -> SearchResponse:
     nq = _norm_query(body)
     prefix_label = pincode_prefix(body.pincode)
@@ -236,6 +256,7 @@ async def run_search_cached(body: SearchRequest, settings: Settings) -> SearchRe
         body.pincode,
         settings.search_cache_ttl_seconds,
         compute,
+        ttl_for_value=lambda v: _choose_cache_ttl(v, settings),
     )
     record_cache_hit(cached)
 

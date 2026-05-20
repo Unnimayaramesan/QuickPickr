@@ -1,0 +1,17 @@
+# Optional overlay: mount GCP service account JSON into api / indexer containers.
+# Usage:
+#   export GCP_SA_MOUNT=C:/path/to/.secrets/quickpickr-sa.json   # or ./.secrets/sa.json
+#   docker compose -f docker-compose.yml -f docker-compose.gcp.yml up --build
+
+services:
+  api:
+    volumes:
+      - ${GCP_SA_MOUNT}:/secrets/gcp-sa.json:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/gcp-sa.json
+
+  indexer:
+    volumes:
+      - ${GCP_SA_MOUNT}:/secrets/gcp-sa.json:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/gcp-sa.json

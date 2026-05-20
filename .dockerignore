@@ -1,0 +1,32 @@
+# Git and IDE
+.git
+.cursor
+**/.pytest_cache
+
+# Dependencies and build caches (rebuilt in image)
+**/node_modules
+**/.next
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+
+# Secrets and local env
+.env
+.env.*
+!.env.example
+!.env.docker.example
+.secrets
+**/*.pem
+
+# Mobile / dev-only weight (not needed for web or API images)
+apps/mobile
+
+# Docs and context (not runtime)
+project-context
+*.md
+!apps/**/README.md
+
+# OS
+.DS_Store
+Thumbs.db

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from google.api_core.client_options import ClientOptions
+from google.api_core.exceptions import GoogleAPICallError, InvalidArgument
 from google.cloud import discoveryengine_v1 as discoveryengine
 
 from app.config import Settings
@@ -12,6 +14,19 @@ from app.price_parser import extract_from_struct, parse_inr, struct_to_dict
 from app.vertex_search import ALL_RETAILERS
 
 _QP_RETAILERS = frozenset(ALL_RETAILERS)
+_log = logging.getLogger(__name__)
+
+# None = follow settings.vertex_use_schema_filters; False = facets rejected by Vertex.
+_schema_filters_viable: bool | None = None
+
+
+def _schema_filters_enabled(settings: Settings) -> bool:
+    global _schema_filters_viable
+    if _schema_filters_viable is False:
+        return False
+    if _schema_filters_viable is True:
+        return True
+    return settings.vertex_use_schema_filters
 
 
 def _client() -> discoveryengine.SearchServiceClient:
@@ -42,7 +57,9 @@ def _snippet_text(result: discoveryengine.SearchResponse.SearchResult) -> str:
     return ""
 
 
-def _filter_variants(retailer: str, zone_id: str) -> list[str | None]:
+def _filter_variants(retailer: str, zone_id: str, *, use_schema_filters: bool) -> list[str | None]:
+    if not use_schema_filters:
+        return [""]
     """Ordered filter chain — strict first, widen on empty."""
     escaped_retail = retailer.replace("\\", "").replace('"', "")
     escaped_zone = zone_id.replace("\\", "").replace('"', "")
@@ -51,7 +68,6 @@ def _filter_variants(retailer: str, zone_id: str) -> list[str | None]:
         variants.append(f'retailer: ANY("{escaped_retail}") AND zoneId: ANY("{escaped_zone}")')
     variants.append(f'retailer: ANY("{escaped_retail}")')
     variants.append("")
-    # De-dupe while preserving order
     seen: set[str | None] = set()
     out: list[str | None] = []
     for v in variants:
@@ -72,17 +88,47 @@ def search_filtered(
     ps = page_size or settings.vertex_page_size
 
     parsed: list[dict[str, Any]] = []
+    last_exc: GoogleAPICallError | None = None
+    any_variant_succeeded = False
+    skip_to_unfiltered = False
+    use_filters = _schema_filters_enabled(settings)
 
-    for filt in _filter_variants(retailer_key, zone_id or ""):
+    for filt in _filter_variants(retailer_key, zone_id or "", use_schema_filters=use_filters):
+        if skip_to_unfiltered and filt:
+            continue
+        filter_str = filt.strip() if filt else ""
         request = discoveryengine.SearchRequest(
             serving_config=settings.vertex_search_serving_config,
             query=query,
             page_size=ps,
-            filter=filt.strip() if filt else "",
+            filter=filter_str,
         )
 
+        try:
+            search_iter = client.search(request).results
+        except InvalidArgument as exc:
+            _log.warning(
+                "vertex_filter_rejected retailer=%s filter=%r query=%r msg=%s",
+                retailer_key, filter_str or "<empty>", query, str(exc),
+            )
+            last_exc = exc
+            if filter_str:
+                global _schema_filters_viable
+                _schema_filters_viable = False
+                skip_to_unfiltered = True
+            continue
+        except GoogleAPICallError as exc:
+            _log.warning(
+                "vertex_call_failed retailer=%s filter=%r query=%r msg=%s",
+                retailer_key, filter_str or "<empty>", query, str(exc),
+            )
+            last_exc = exc
+            continue
+
+        any_variant_succeeded = True
+
         ranked = 0
-        for result in client.search(request).results:
+        for result in search_iter:
             if not result.document:
                 continue
             fields = _document_fields(result.document)
@@ -92,7 +138,7 @@ def search_filtered(
             try:
                 rel = getattr(result, "relevance_score", None)
                 if rel is None and hasattr(result, "relevanceScore"):
-                    rel = getattr(result, "relevanceScore")  # type: ignore[no-any-return]
+                    rel = getattr(result, "relevanceScore")
                 fields["vertexRelevanceScore"] = float(rel) if rel is not None else None
             except (TypeError, ValueError):
                 fields["vertexRelevanceScore"] = None
@@ -116,6 +162,9 @@ def search_filtered(
 
         if parsed:
             break
+
+    if not any_variant_succeeded and last_exc is not None:
+        raise last_exc
 
     return parsed
 
@@ -150,7 +199,7 @@ def search_vertex_unfiltered(query: str, settings: Settings, page_size: int | No
         try:
             rel = getattr(result, "relevance_score", None)
             if rel is None and hasattr(result, "relevanceScore"):
-                rel = getattr(result, "relevanceScore")  # type: ignore[no-any-return]
+                rel = getattr(result, "relevanceScore")
             fields["vertexRelevanceScore"] = float(rel) if rel is not None else None
         except (TypeError, ValueError):
             fields["vertexRelevanceScore"] = None

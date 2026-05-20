@@ -106,6 +106,7 @@ export function HomeSearch() {
   };
 
   const hasAvailable = data?.results.some((r) => r.status === "available");
+  const showResultsTable = Boolean(data?.results.length);
 
   return (
     <>
@@ -131,9 +132,10 @@ export function HomeSearch() {
 
       {data && !loading && (
         <div className="mt-6">
-          {!hasAvailable ? (
-            <p className="rounded-lg bg-qp-surface p-4 text-qp-muted">{t(locale, "noResults")}</p>
-          ) : (
+          {!hasAvailable && (
+            <p className="mb-4 rounded-lg bg-qp-surface p-4 text-qp-muted">{t(locale, "noResults")}</p>
+          )}
+          {showResultsTable && (
             <ResultsTable
               rows={data.results}
               locale={locale}

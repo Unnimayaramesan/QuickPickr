@@ -18,6 +18,7 @@ This repository is built with the [AAMAD](https://pypi.org/project/aamad/) (AI-A
 - [Development Workflow (AAMAD Agents)](#development-workflow-aamad-agents)
 - [Getting Started](#getting-started)
 - [npm scripts (root)](#npm-scripts-root)
+- [Deployment](#deployment)
 - [Project Structure](#project-structure)
 - [Documentation](#documentation)
 - [Next Steps for Contributors](#next-steps-for-contributors)
@@ -363,6 +364,23 @@ Optional rate-limit check: `$env:QA_RATE_LIMIT="1"; npm run qa:api` (expects **4
 
 Latest automated results: **[qa-plan.md](./project-context/2.build/qa-plan.md)** §3. Wiring and release checklist: **[integration-plan.md](./project-context/2.build/integration-plan.md)** §7.
 
+### 10. Deployment (Docker / cloud)
+
+Full plan: **[deployment-plan.md](./project-context/3.deliver/deployment-plan.md)**.
+
+**Docker Compose** (API + web + Redis):
+
+```powershell
+docker compose up --build
+# With GCP SA mounted for Vertex inside containers:
+$env:GCP_SA_MOUNT="C:\path\to\.secrets\your-sa.json"
+docker compose -f docker-compose.yml -f docker-compose.gcp.yml up --build
+```
+
+Helpers: `scripts/deploy/compose-up.ps1`, `compose-down.ps1`. See [`.env.docker.example`](./.env.docker.example).
+
+**Production target (GCP):** Cloud Run for `apps/query-service`, Cloud Run Jobs for `apps/indexer`, Vertex AI Search, optional Memorystore — example in `scripts/deploy/cloud-run-query-service.example.sh`.
+
 ---
 
 ## npm scripts (root)
@@ -377,6 +395,18 @@ Latest automated results: **[qa-plan.md](./project-context/2.build/qa-plan.md)**
 | `npm run typecheck` | TypeScript: api-client, shared, web |
 | `npm run verify:contract` | Ensures `packages/api-contract/openapi.yaml` exists |
 | `npm run qa:api` | Python smoke: health, search shape, validation (see `scripts/qa_api_smoke.py`) |
+
+---
+
+## Deployment
+
+| Tier | When to use | Entry |
+|------|-------------|--------|
+| **Local** | Daily development | `npm run dev` |
+| **Docker Compose** | Stack parity, demos, pre-release smoke | `docker compose up --build` |
+| **GCP** | Staging / production | [deployment-plan.md](./project-context/3.deliver/deployment-plan.md) §4.3 |
+
+Images: `apps/query-service/Dockerfile`, `apps/web/Dockerfile` (Next.js `standalone`), `apps/indexer/Dockerfile` (batch job).
 
 ---
 
@@ -406,15 +436,18 @@ quick-pickr-project/
 │   └── affiliates.json       # Optional CTA query params
 │
 ├── scripts/
+│   ├── deploy/               # compose-up/down, Cloud Run example
 │   ├── run-query-service-dev.cjs
 │   ├── qa_api_smoke.py
-│   ├── check-openapi-contract.cjs
 │   └── verify_vertex.py
 │
 ├── project-context/
 │   ├── 1.define/             # MRD, PRD, context-summary
-│   └── 2.build/              # SAD, plans, epic logs (setup, frontend, backend, …)
+│   ├── 2.build/              # SAD, plans, epic logs (setup, frontend, backend, …)
+│   └── 3.deliver/            # Phase 3 — deployment-plan, deliver
 │
+├── docker-compose.yml        # api + web + redis
+├── docker-compose.gcp.yml    # optional SA mount overlay
 ├── .cursor/                  # AAMAD agents, rules, templates
 ├── QuickPickr_MRD.md         # → project-context/1.define/mrd.md
 └── QuickPickr_PRD.md         # → project-context/1.define/prd.md
@@ -440,6 +473,7 @@ quick-pickr-project/
 | [Frontend log](project-context/2.build/frontend.md) | @frontend.eng epic summary |
 | [Integration plan](project-context/2.build/integration-plan.md) | E2E wiring, env matrix, **§7 testing** |
 | [QA plan](project-context/2.build/qa-plan.md) | Test matrix, last run results, defects |
+| [Deployment plan](project-context/3.deliver/deployment-plan.md) | Docker, Compose, GCP Cloud Run, rollback |
 | [CHECKLIST.md](CHECKLIST.md) | Step-by-step AAMAD execution |
 | [AGENTS.md](AGENTS.md) | Agent persona quick reference |
 

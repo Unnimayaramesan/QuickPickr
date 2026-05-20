@@ -29,9 +29,18 @@ class Settings(BaseSettings):
     google_application_credentials: str | None = None
 
     vertex_page_size: int = 25
-    retailer_search_timeout_sec: float = 0.8
-    total_search_budget_sec: float = 2.8
+    # Set true only after retailer + zoneId are filterable in the Vertex data store schema.
+    # False = one unfiltered call per retailer (client-side retailer filter); much faster locally.
+    vertex_use_schema_filters: bool = False  # env: VERTEX_USE_SCHEMA_FILTERS
+    retailer_search_timeout_sec: float = 3.5
+    # Parallel fan-out: wall clock ≈ slowest retailer; must exceed retailer_search_timeout_sec.
+    total_search_budget_sec: float = 5.0
     search_cache_ttl_seconds: int = 60
+    # Negative-cache TTL: applied when every retailer row is status=error.
+    # Keeps a short stampede shield in front of a flapping upstream without
+    # memorialising a transient failure for the full success TTL.
+    # Set to 0 to skip caching all-error responses entirely.
+    negative_cache_ttl_seconds: int = 5
     cors_origins: str = (
         "http://localhost:3000,http://127.0.0.1:3000,"
         "http://localhost:8080,http://127.0.0.1:8080"

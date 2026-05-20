@@ -101,7 +101,15 @@ async def get_or_compute(
     pincode: str,
     ttl_seconds: int,
     compute_async: Callable[[], Awaitable[dict[str, Any]]],
+    ttl_for_value: Callable[[dict[str, Any]], int] | None = None,
 ) -> tuple[dict[str, Any], bool]:
+    """Singleflight-protected cached compute.
+
+    `ttl_for_value` (optional) lets the caller pick the TTL based on the computed
+    payload — return a positive int to cache for that many seconds, or 0/negative
+    to skip the cache write entirely. When omitted, `ttl_seconds` is used for
+    every payload (legacy behaviour).
+    """
     digest = _normalize_cache_digest(norm_query, pincode)
     full_key = f"{namespace}{digest}"
 
@@ -120,5 +128,8 @@ async def get_or_compute(
         meta = merged.get("meta") or {}
         meta["cacheHit"] = False
         merged["meta"] = meta
-        await cache_set_json(full_key, ttl_seconds, merged)
+
+        effective_ttl = ttl_seconds if ttl_for_value is None else ttl_for_value(merged)
+        if effective_ttl > 0:
+            await cache_set_json(full_key, effective_ttl, merged)
         return merged, False

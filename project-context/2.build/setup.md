@@ -2,29 +2,50 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | 2026-05-19 |
-| **Author** | @project.mgr / @system.arch |
+| **Date** | 2026-05-20 |
+| **Author** | @project.mgr / @system.arch / @backend.eng |
 | **Status** | Vertex search path documented |
 
 ---
 
-## 1. What you already have
+## 1. Vertex AI Search credentials (quick setup)
 
-If your repo-root `.env` includes:
-
-```bash
-VERTEX_SEARCH_SERVING_CONFIG=projects/.../engines/.../servingConfigs/default_search
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-```
-
-then the **query service** can call Vertex AI Search directly—no extra API keys beyond GCP credentials.
+Vertex AI Search is backed by the **Discovery Engine** API. QuickPickr only needs:
 
 | Variable | Purpose |
 |----------|---------|
-| `VERTEX_SEARCH_SERVING_CONFIG` | Full resource name passed to `SearchRequest.serving_config` |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Service account JSON with permission to search the engine/data store |
+| `VERTEX_SEARCH_SERVING_CONFIG` | Full resource name for `SearchRequest.serving_config` |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to a **service account JSON key** (local dev); Cloud Run uses Workload Identity instead |
 
-Your engine (`quickpickr_*`) should already index retailer catalog pages. The app sends the **user’s product query** to this serving config and maps hits into the four-retailer comparison table.
+**Canonical backend notes:** step-by-step Console navigation, IAM roles, ADC behaviour, and troubleshooting live in **[backend-plan.md §1](./backend-plan.md#1-vertex-ai-search-discovery-engine--role-in-quickpickr)**.
+
+### 1a. Example `.env` entries
+
+```bash
+VERTEX_SEARCH_SERVING_CONFIG=projects/958550029567/locations/global/collections/default_collection/engines/quickpickr_1778758368160/servingConfigs/default_search
+GOOGLE_APPLICATION_CREDENTIALS=C:/Users/you/.secrets/quickpickr-sa.json
+```
+
+Replace with **your** project number/id, engine id, and key path. Do **not** commit real paths or keys.
+
+### 1b. Where each value comes from (summary)
+
+**Serving config**
+
+1. GCP Console → correct **project**.
+2. **Vertex AI** → **Vertex AI Search** (or **Agent Builder / Gen App Builder** → your search app).
+3. Open your **engine** → **Serving configs** → choose the config used for queries (often `default_search`).
+4. Copy the **full resource name** (starts with `projects/…/servingConfigs/…`) into `VERTEX_SEARCH_SERVING_CONFIG`.
+
+**Service account key**
+
+1. **IAM & Admin** → **Service accounts** → create or select an SA.
+2. Grant **`roles/discoveryengine.user`** at minimum for search; add **`roles/discoveryengine.editor`** (or narrower import roles) if you run the **indexer** from the same SA.
+3. **Keys** → **Add key** → **JSON** → save outside git → set `GOOGLE_APPLICATION_CREDENTIALS` to that file path.
+
+This repo loads `.env` with **`python-dotenv` into `os.environ`** (`apps/query-service/app/config.py`) so Google client libraries pick up `GOOGLE_APPLICATION_CREDENTIALS` correctly.
+
+Your engine (`quickpickr_*` or equivalent) should index retailer catalog pages. The query service sends the **user product query** (plus optional filters) to this serving config and maps hits into four retailer rows.
 
 ---
 
@@ -113,3 +134,4 @@ sequenceDiagram
 | Timestamp (UTC) | Persona | Action |
 |-----------------|---------|--------|
 | 2026-05-19T20:00:00Z | @system.arch | Documented Vertex env vars and local query-service run path |
+| 2026-05-20T12:00:00Z | @backend.eng | Linked backend-plan §1; expanded serving config + SA key steps |

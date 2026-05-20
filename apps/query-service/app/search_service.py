@@ -1,30 +1,144 @@
+"""Async orchestration for /v1/search — parallel per-retailer Vertex + cache + telemetry."""
+
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
 import time
 from datetime import datetime, timezone
+from typing import Any
 
+from app.cache import get_or_compute
 from app.config import Settings
+from app.logging_utils import pincode_prefix
+from app.match_engine import pick_best_for_retailer
 from app.models import RowStatus, SearchMeta, SearchRequest, SearchResponse, SearchResultRow
-from app.vertex_search import ALL_RETAILERS, RETAILER_DISPLAY, pick_best_per_retailer, search_vertex
+from app.pincode_resolver import resolve_zones
+from app.price_parser import normalize_product_fields
+from app.search_adapter import search_sync
+from app.telemetry.metrics import (
+    record_cache_hit,
+    record_freshness_age_minutes,
+    record_parse_failure,
+    record_retailer_timeout,
+    record_search_latency_ms,
+    record_zero_result_city,
+)
+from app.vertex_search import ALL_RETAILERS, RETAILER_DISPLAY
 
-# In-process cache for local dev (use Redis in production per SAD)
-_CACHE: dict[str, tuple[float, SearchResponse]] = {}
+_log = logging.getLogger(__name__)
 
 
-def _cache_key(body: SearchRequest) -> str:
-    q = " ".join(body.query.lower().split())
-    return f"{q}|{body.pincode}"
+def _norm_query(body: SearchRequest) -> str:
+    return " ".join(body.query.lower().split())
 
 
-def _build_rows(
-    best_by_retailer: dict[str, dict | None],
-    pincode: str,
-) -> list[SearchResultRow]:
+def _freshness_minutes(hit: dict[str, Any]) -> float | None:
+    ca = hit.get("crawledAt")
+    if not ca:
+        return None
+    try:
+        s = str(ca).strip()
+        if s.endswith("Z") and "+" not in s:
+            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        else:
+            dt = datetime.fromisoformat(s)
+        delta = datetime.now(timezone.utc) - dt.astimezone(timezone.utc)
+        return max(0.0, delta.total_seconds() / 60.0)
+    except Exception:
+        return None
+
+
+def _hits_to_best(query: str, hits: list[dict[str, Any]], settings: Settings) -> dict[str, Any] | None:
+    best = pick_best_for_retailer(query, hits, settings)
+    if not best:
+        return None
+    return normalize_product_fields(best)
+
+
+def _retailer_row_available(hit: dict[str, Any], retailer: str) -> SearchResultRow:
+    buy_url = hit.get("productUrl") or None
+    return SearchResultRow(
+        retailer=retailer,
+        retailerDisplayName=RETAILER_DISPLAY[retailer],
+        title=hit.get("title") or "",
+        packSize=str(hit.get("packSize") or ""),
+        imageUrl=str(hit.get("imageUrl") or ""),
+        finalPriceInr=hit.get("finalPriceInr"),
+        unitPriceLabel=hit.get("unitPriceLabel"),
+        matchConfidence=hit.get("matchConfidence") or "high",
+        status=RowStatus.available,
+        crawledAt=hit.get("crawledAt"),
+        buyUrl=buy_url,
+    )
+
+
+async def _fan_out_per_retailer(
+    body: SearchRequest,
+    settings: Settings,
+    zones: dict[str, str],
+) -> tuple[list[SearchResultRow], int]:
+    """Returns (ordered rows, priced_hit_count_after_sort)."""
+
+    async def call_one(retailer: str):
+        tout = settings.retailer_search_timeout_sec
+        zone_id = zones[retailer]
+        error: str | None = None
+        raw_hits: list[dict[str, Any]] | None = None
+        try:
+            raw_hits = await asyncio.wait_for(
+                asyncio.to_thread(search_sync, retailer, body.query.strip(), zone_id, settings),
+                timeout=tout,
+            )
+            return retailer, raw_hits, None
+        except asyncio.TimeoutError:
+            record_retailer_timeout(retailer)
+            error = "timeout"
+        except Exception:
+            record_parse_failure(retailer)
+            _log.warning("vertex_retailer_error", extra={"retailer": retailer}, exc_info=True)
+            error = "exception"
+
+        return retailer, None, error
+
+    gatherable = asyncio.gather(*[call_one(r) for r in ALL_RETAILERS], return_exceptions=False)
+    try:
+        raw_results = await asyncio.wait_for(gatherable, timeout=settings.total_search_budget_sec)
+    except asyncio.TimeoutError:
+        raw_results = [(r, None, "budget_time") for r in ALL_RETAILERS]
+
     rows: list[SearchResultRow] = []
-    for retailer in ALL_RETAILERS:
-        hit = best_by_retailer.get(retailer)
+    priced_any = 0
+
+    for retailer, hits, error in raw_results:
         display = RETAILER_DISPLAY[retailer]
-        if not hit or not hit.get("finalPriceInr"):
+
+        if error in {"timeout", "budget_time"}:
+            rows.append(
+                SearchResultRow(
+                    retailer=retailer,
+                    retailerDisplayName=display,
+                    status=RowStatus.error,
+                    message="Temporarily unavailable",
+                    matchConfidence="low",
+                )
+            )
+            continue
+
+        if error == "exception":
+            rows.append(
+                SearchResultRow(
+                    retailer=retailer,
+                    retailerDisplayName=display,
+                    status=RowStatus.error,
+                    message="Temporarily unavailable",
+                    matchConfidence="low",
+                )
+            )
+            continue
+
+        if not hits:
             rows.append(
                 SearchResultRow(
                     retailer=retailer,
@@ -36,56 +150,60 @@ def _build_rows(
             )
             continue
 
-        buy_url = hit.get("productUrl") or None
-        rows.append(
-            SearchResultRow(
-                retailer=retailer,
-                retailerDisplayName=display,
-                title=hit.get("title") or "",
-                packSize=hit.get("packSize") or "",
-                imageUrl=hit.get("imageUrl") or "",
-                finalPriceInr=hit.get("finalPriceInr"),
-                matchConfidence=hit.get("matchConfidence", "high"),
-                status=RowStatus.available,
-                crawledAt=hit.get("crawledAt"),
-                buyUrl=buy_url,
+        best = _hits_to_best(body.query, hits, settings)
+        if best is None:
+            rows.append(
+                SearchResultRow(
+                    retailer=retailer,
+                    retailerDisplayName=display,
+                    status=RowStatus.unavailable,
+                    message="No confident match — try refining your query",
+                    matchConfidence="low",
+                )
             )
-        )
+            continue
 
-    rows.sort(
-        key=lambda r: (r.finalPriceInr is None, r.finalPriceInr or float("inf")),
-    )
-    return rows
+        if best.get("finalPriceInr") is None:
+            fm = _freshness_minutes(best)
+            if fm is not None:
+                record_freshness_age_minutes(fm)
+
+            rows.append(
+                SearchResultRow(
+                    retailer=retailer,
+                    retailerDisplayName=display,
+                    title=best.get("title") or "",
+                    packSize=str(best.get("packSize") or ""),
+                    status=RowStatus.unavailable,
+                    message="Matched product but price not parsed — check retailer",
+                    matchConfidence=best.get("matchConfidence") or "low",
+                )
+            )
+            record_parse_failure(retailer)
+            continue
+
+        fm = _freshness_minutes(best)
+        if fm is not None:
+            record_freshness_age_minutes(fm)
+
+        rows.append(_retailer_row_available(best, retailer))
+        priced_any += 1
+
+    rows.sort(key=lambda rr: (rr.finalPriceInr is None, rr.finalPriceInr or float("inf")))
+
+    if priced_any == 0:
+        record_zero_result_city(pincode_prefix(body.pincode))
+
+    return rows, priced_any
 
 
-def run_search(body: SearchRequest, settings: Settings) -> SearchResponse:
+async def _compute_response(body: SearchRequest, settings: Settings) -> dict[str, Any]:
     started = time.perf_counter()
-    key = _cache_key(body)
-    now = time.time()
-
-    cached = _CACHE.get(key)
-    if cached and (now - cached[0]) < settings.search_cache_ttl_seconds:
-        response = cached[1].model_copy(deep=True)
-        response.meta.cacheHit = True
-        response.meta.latencyMs = int((time.perf_counter() - started) * 1000)
-        return response
-
-    try:
-        hits = search_vertex(body.query, settings)
-        best = pick_best_per_retailer(hits)
-        rows = _build_rows(best, body.pincode)
-    except Exception as exc:  # noqa: BLE001 — surface as error rows for MVP
-        rows = [
-            SearchResultRow(
-                retailer=r,
-                retailerDisplayName=RETAILER_DISPLAY[r],
-                status=RowStatus.error,
-                message=f"Temporarily unavailable ({type(exc).__name__})",
-            )
-            for r in ALL_RETAILERS
-        ]
-
+    zones = resolve_zones(body.pincode)
+    rows, _ = await _fan_out_per_retailer(body, settings, zones)
     latency_ms = int((time.perf_counter() - started) * 1000)
+    record_search_latency_ms(latency_ms)
+
     response = SearchResponse(
         query=body.query,
         pincode=body.pincode,
@@ -97,5 +215,42 @@ def run_search(body: SearchRequest, settings: Settings) -> SearchResponse:
             vertexServingConfig=settings.vertex_search_serving_config,
         ),
     )
-    _CACHE[key] = (now, response.model_copy(deep=True))
-    return response
+
+    payload = json.loads(response.model_dump_json())
+    payload["meta"]["cacheHit"] = False
+    return payload
+
+
+async def run_search_cached(body: SearchRequest, settings: Settings) -> SearchResponse:
+    nq = _norm_query(body)
+    prefix_label = pincode_prefix(body.pincode)
+    _log.info("search_start", extra={"pincode_prefix": prefix_label, "q_len": len(body.query.strip())})
+
+    async def compute() -> dict[str, Any]:
+        payload = await _compute_response(body, settings)
+        return payload
+
+    payload, cached = await get_or_compute(
+        "qp:search:v1:",
+        nq,
+        body.pincode,
+        settings.search_cache_ttl_seconds,
+        compute,
+    )
+    record_cache_hit(cached)
+
+    latency_for_log = payload.get("meta", {}).get("latencyMs") or 0
+    retailer_hits = sum(
+        1 for r in payload.get("results", []) if isinstance(r, dict) and r.get("status") == "available"
+    )
+    _log.info(
+        "search_done",
+        extra={
+            "pincode_prefix": prefix_label,
+            "latency_ms": latency_for_log,
+            "cache_hit": cached,
+            "retailer_hits": retailer_hits,
+        },
+    )
+
+    return SearchResponse.model_validate(payload)

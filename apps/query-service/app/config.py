@@ -1,6 +1,8 @@
 from pathlib import Path
+from typing import Self
 
 from dotenv import load_dotenv
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Load repo-root .env when running locally (apps/query-service -> repo root)
@@ -24,11 +26,35 @@ class Settings(BaseSettings):
     vertex_search_serving_config: str
     google_application_credentials: str | None = None
 
-    # Optional tuning
     vertex_page_size: int = 25
-    retailer_search_timeout_ms: int = 800
+    retailer_search_timeout_sec: float = 0.8
+    total_search_budget_sec: float = 2.8
     search_cache_ttl_seconds: int = 60
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080"
+    cors_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:8080,http://127.0.0.1:8080"
+    )
+
+    redis_url: str | None = None
+    enable_rate_limit: bool = True
+    rate_limit_requests_per_minute: int = 30
+
+    match_engine_low_threshold: float = 0.52
+    match_engine_suppress_threshold: float = 0.34
+
+    vertex_data_store_branch: str | None = None
+
+    retailer_search_timeout_ms: int | None = None
+
+    @model_validator(mode="after")
+    def _apply_timeout_ms(self) -> Self:
+        if self.retailer_search_timeout_ms is not None:
+            object.__setattr__(
+                self,
+                "retailer_search_timeout_sec",
+                max(0.05, float(self.retailer_search_timeout_ms) / 1000.0),
+            )
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:

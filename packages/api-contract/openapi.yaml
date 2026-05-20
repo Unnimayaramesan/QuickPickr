@@ -1,139 +1,254 @@
 openapi: 3.1.0
 info:
   title: QuickPickr Query Service
-  version: 0.1.0
-  description: Quick-commerce price comparison API
-servers:
-  - url: http://127.0.0.1:8080
-    description: Local query service
+  description: Search quick-commerce prices via Vertex AI Search
+  version: 0.2.0
 paths:
   /health:
     get:
-      operationId: health
+      summary: Health
+      operationId: health_health_get
       responses:
-        "200":
-          description: Health status
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthResponse"
+                $ref: '#/components/schemas/HealthResponse'
   /v1/search:
     post:
-      operationId: search
+      summary: Search
+      operationId: search_v1_search_post
       parameters:
-        - name: X-Session-Id
-          in: header
-          required: false
-          schema:
-            type: string
+      - name: X-Session-Id
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Session-Id
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SearchRequest"
+              $ref: '#/components/schemas/SearchRequest'
       responses:
-        "200":
-          description: Ranked search results
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SearchResponse"
-        "400":
-          description: Validation error
-        "429":
-          description: Rate limited
-        "503":
-          description: Service unavailable
+                $ref: '#/components/schemas/SearchResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /:
+    get:
+      summary: Dev Search Page
+      description: Minimal web UI for local Vertex search testing.
+      operationId: dev_search_page__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
 components:
   schemas:
-    SearchRequest:
-      type: object
-      required: [query, pincode]
+    HTTPValidationError:
       properties:
-        query:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HealthResponse:
+      properties:
+        status:
           type: string
-          minLength: 2
-          maxLength: 120
-        pincode:
-          type: string
-          pattern: "^[1-9][0-9]{5}$"
+          enum:
+          - ok
+          - degraded
+          - error
+          title: Status
+        vertexConfigured:
+          type: boolean
+          title: Vertexconfigured
+        credentialsPathSet:
+          type: boolean
+          title: Credentialspathset
+        servingConfig:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Servingconfig
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+      type: object
+      required:
+      - status
+      - vertexConfigured
+      - credentialsPathSet
+      title: HealthResponse
     RowStatus:
       type: string
-      enum: [available, unavailable, error]
-    SearchResultRow:
-      type: object
-      required: [retailer, retailerDisplayName, status, matchConfidence]
-      properties:
-        retailer:
-          type: string
-        retailerDisplayName:
-          type: string
-        title:
-          type: string
-        packSize:
-          type: string
-        imageUrl:
-          type: string
-        finalPriceInr:
-          type: number
-          nullable: true
-        unitPriceLabel:
-          type: string
-          nullable: true
-        matchConfidence:
-          type: string
-          enum: [high, low]
-        status:
-          $ref: "#/components/schemas/RowStatus"
-        crawledAt:
-          type: string
-          nullable: true
-        buyUrl:
-          type: string
-          nullable: true
-        message:
-          type: string
-          nullable: true
+      enum:
+      - available
+      - unavailable
+      - error
+      title: RowStatus
     SearchMeta:
-      type: object
       properties:
         cacheHit:
           type: boolean
+          title: Cachehit
+          default: false
         latencyMs:
           type: integer
+          title: Latencyms
+          default: 0
         vertexServingConfig:
-          type: string
-          nullable: true
-    SearchResponse:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vertexservingconfig
       type: object
-      required: [query, pincode, searchedAt, results, meta]
+      title: SearchMeta
+    SearchRequest:
       properties:
         query:
           type: string
+          maxLength: 120
+          minLength: 2
+          title: Query
         pincode:
           type: string
+          pattern: ^[1-9][0-9]{5}$
+          title: Pincode
+      type: object
+      required:
+      - query
+      - pincode
+      title: SearchRequest
+    SearchResponse:
+      properties:
+        query:
+          type: string
+          title: Query
+        pincode:
+          type: string
+          title: Pincode
         searchedAt:
           type: string
+          title: Searchedat
         results:
-          type: array
           items:
-            $ref: "#/components/schemas/SearchResultRow"
+            $ref: '#/components/schemas/SearchResultRow'
+          type: array
+          title: Results
         meta:
-          $ref: "#/components/schemas/SearchMeta"
-    HealthResponse:
+          $ref: '#/components/schemas/SearchMeta'
       type: object
+      required:
+      - query
+      - pincode
+      - searchedAt
+      - results
+      - meta
+      title: SearchResponse
+    SearchResultRow:
       properties:
+        retailer:
+          type: string
+          title: Retailer
+        retailerDisplayName:
+          type: string
+          title: Retailerdisplayname
+        title:
+          type: string
+          title: Title
+          default: ''
+        packSize:
+          type: string
+          title: Packsize
+          default: ''
+        imageUrl:
+          type: string
+          title: Imageurl
+          default: ''
+        finalPriceInr:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Finalpriceinr
+        unitPriceLabel:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Unitpricelabel
+        matchConfidence:
+          type: string
+          enum:
+          - high
+          - low
+          title: Matchconfidence
+          default: high
         status:
-          type: string
-          enum: [ok, degraded, error]
-        vertexConfigured:
-          type: boolean
-        credentialsPathSet:
-          type: boolean
-        servingConfig:
-          type: string
-          nullable: true
+          $ref: '#/components/schemas/RowStatus'
+        crawledAt:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Crawledat
+        buyUrl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Buyurl
         message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+      type: object
+      required:
+      - retailer
+      - retailerDisplayName
+      - status
+      title: SearchResultRow
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
           type: string
-          nullable: true
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
